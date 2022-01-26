@@ -12,6 +12,46 @@
 #include "../src/picorbc.h"
 #include "../src/common.h"
 
+#define MRB_DUMP_OK                     0
+#define MRB_DUMP_GENERAL_FAILURE      (-1)
+#define MRB_DUMP_WRITE_FAULT          (-2)
+#define MRB_DUMP_READ_FAULT           (-3)
+#define MRB_DUMP_INVALID_FILE_HEADER  (-4)
+#define MRB_DUMP_INVALID_IREP         (-5)
+#define MRB_DUMP_INVALID_ARGUMENT     (-6)
+int
+mrb_dump_irep_cstruct(uint8_t flags, FILE *fp, const char *initname)
+//mrb_dump_irep_cstruct(mrb_state *mrb, const mrb_irep *irep, uint8_t flags, FILE *fp, const char *initname)
+{
+  if (fp == NULL || initname == NULL || initname[0] == '\0') {
+    return MRB_DUMP_INVALID_ARGUMENT;
+  }
+  if (fprintf(fp, "#include <mruby.h>\n"
+                  "#include <mruby/proc.h>\n"
+                  "#include <mruby/presym.h>\n"
+                  "\n") < 0) {
+    return MRB_DUMP_WRITE_FAULT;
+  }
+  fputs("#define mrb_BRACED(...) {__VA_ARGS__}\n", fp);
+  fputs("#define mrb_DEFINE_SYMS_VAR(name, len, syms, qualifier) \\\n", fp);
+  fputs("  static qualifier mrb_sym name[len] = mrb_BRACED syms\n", fp);
+  fputs("\n", fp);
+//  mrb_value init_syms_code = mrb_str_new_capa(mrb, 0);
+//  int max = 1;
+//  int n = dump_irep_struct(mrb, irep, flags, fp, initname, 0, init_syms_code, &max);
+//  if (n != MRB_DUMP_OK) return n;
+  fprintf(fp, "#ifdef __cplusplus\nextern const struct RProc %s[];\n#endif\n", initname);
+  fprintf(fp, "const struct RProc %s[] = {{\n", initname);
+  fprintf(fp, "NULL,NULL,MRB_TT_PROC,7,0,{&%s_irep_0},NULL,{NULL},\n}};\n", initname);
+  fputs("static void\n", fp);
+  fprintf(fp, "%s_init_syms(mrb_state *mrb)\n", initname);
+  fputs("{\n", fp);
+//  fputs(RSTRING_PTR(init_syms_code), fp);
+  fputs("}\n", fp);
+  return MRB_DUMP_OK;
+}
+
+
 int loglevel;
 
 int handle_opt(int argc, char * const *argv, char *out, char *b_symbol)
@@ -25,12 +65,13 @@ int handle_opt(int argc, char * const *argv, char *out, char *b_symbol)
     { "",         required_argument, NULL, 'o' },
     { "",         no_argument,       NULL, 'E' },
     { "remove-lv",no_argument,       NULL, 'R' },
+    { "",         no_argument,       NULL, 'S' },
     { 0,          0,                 0,     0  }
   };
   int opt;
   int longindex;
   loglevel = LOGLEVEL_INFO;
-  while ((opt = getopt_long(argc, argv, "vdblER:B:o:", longopts, &longindex)) != -1) {
+  while ((opt = getopt_long(argc, argv, "vdblERS:B:o:", longopts, &longindex)) != -1) {
     switch (opt) {
       case 'v':
         fprintf(stdout, "PicoRuby compiler %s\n", PICORBC_VERSION);
@@ -68,6 +109,7 @@ int handle_opt(int argc, char * const *argv, char *out, char *b_symbol)
         break;
       case 'E':
       case 'R':
+      case 'S':
         break;
       default:
         fprintf(stderr, "error! \'%c\' \'%c\'\n", opt, optopt);

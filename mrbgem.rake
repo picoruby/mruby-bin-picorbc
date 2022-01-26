@@ -14,7 +14,7 @@ MRuby::Gem::Specification.new 'mruby-bin-picorbc' do |spec|
   pico_compiler_srcs = %w(common compiler dump generator mrbgem my_regex
                           node regex scope stream token tokenizer)
   pico_compiler_objs = pico_compiler_srcs.map do |name|
-    "#{spec.build_dir}/../mruby-pico-compiler/src/#{name}.o"
+    "#{build.gems['mruby-pico-compiler'].build_dir}/src/#{name}.o"
   end
 
   file exec => picorbc_objs + pico_compiler_objs do |t|
