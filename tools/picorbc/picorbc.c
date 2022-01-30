@@ -9,8 +9,8 @@
 #define MRBC_ALLOC_LIBC
 #endif
 
-#include "../src/picorbc.h"
-#include "../src/common.h"
+#include <picorbc.h>
+#include <common.h>
 
 #define MRB_DUMP_OK                     0
 #define MRB_DUMP_GENERAL_FAILURE      (-1)
