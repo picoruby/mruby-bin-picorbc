@@ -74,7 +74,11 @@ int handle_opt(int argc, char * const *argv, char *out, char *b_symbol)
   while ((opt = getopt_long(argc, argv, "vdblERS:B:o:", longopts, &longindex)) != -1) {
     switch (opt) {
       case 'v':
-        fprintf(stdout, "PicoRuby compiler %s\n", PICORBC_VERSION);
+        fprintf(stdout, "PicoRuby compiler %s", PICORBC_VERSION);
+        #ifdef PICORBC_DEBUG
+          fprintf(stdout, " (debug build)");
+        #endif
+        fprintf(stdout, "\n");
         return -1;
       case 'b': /* verbose */
         /* TODO */
