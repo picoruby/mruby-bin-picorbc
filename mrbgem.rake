@@ -1,6 +1,6 @@
 MRuby::Gem::Specification.new 'mruby-bin-picorbc' do |spec|
   spec.license = 'MIT'
-  spec.author  = 'mruby developers'
+  spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'picoruby compiler executable'
   spec.add_dependency 'mruby-pico-compiler', github: 'hasumikin/mruby-pico-compiler'
 
