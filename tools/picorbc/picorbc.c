@@ -54,12 +54,13 @@ mrb_dump_irep_cstruct(uint8_t flags, FILE *fp, const char *initname)
 
 int loglevel;
 
+static bool verbose = false;
+
 int handle_opt(int argc, char * const *argv, char *out, char *b_symbol)
 {
   struct option longopts[] = {
     { "version",  no_argument,       NULL, 'v' },
-    { "debug",    no_argument,       NULL, 'd' },
-    { "verbose",  no_argument,       NULL, 'b' },
+    { "verbose",  no_argument,       NULL, 'V' },
     { "loglevel", required_argument, NULL, 'l' },
     { "",         required_argument, NULL, 'B' },
     { "",         required_argument, NULL, 'o' },
@@ -71,30 +72,19 @@ int handle_opt(int argc, char * const *argv, char *out, char *b_symbol)
   int opt;
   int longindex;
   loglevel = LOGLEVEL_INFO;
-  while ((opt = getopt_long(argc, argv, "vdblERS:B:o:", longopts, &longindex)) != -1) {
+  while ((opt = getopt_long(argc, argv, "vVlERS:B:o:", longopts, &longindex)) != -1) {
     switch (opt) {
       case 'v':
         fprintf(stdout, "PicoRuby compiler %s", PICORBC_VERSION);
-        #ifdef PICORBC_DEBUG
+        #ifdef PICORUBY_DEBUG
           fprintf(stdout, " (debug build)");
         #endif
         fprintf(stdout, "\n");
         return -1;
-      case 'b': /* verbose */
-        /* TODO */
-        break;
-      case 'd': /* debug */
-        #ifndef PICORBC_DEBUG
-          fprintf(stderr, "[ERROR] `--debug` option is only valid if you did `make` without CFLAGS=-DNDEBUG\n");
-          return 1;
-        #endif
-        loglevel = LOGLEVEL_DEBUG;
+      case 'V': /* verbose */
+        verbose = true;
         break;
       case 'l':
-        #ifndef PICORBC_DEBUG
-          fprintf(stderr, "[ERROR] `--loglevel=[level]` option is only valid if you made executable without -DNDEBUG\n");
-          return 1;
-        #endif
         if ( !strcmp(optarg, "debug") ) { loglevel = LOGLEVEL_DEBUG; } else
         if ( !strcmp(optarg, "info") )  { loglevel = LOGLEVEL_INFO; } else
         if ( !strcmp(optarg, "warn") )  { loglevel = LOGLEVEL_WARN; } else
@@ -231,6 +221,7 @@ int main(int argc, char * const *argv)
   StreamInterface *si = StreamInterface_new(in, STREAM_TYPE_FILE);
   if (si == NULL) return 1;
   ParserState *p = Compiler_parseInitState(si->node_box_size);
+  p->verbose = verbose;
   if (Compiler_compile(p, si)) {
     ret = output(p->scope, in, out, b_symbol);
   } else {
