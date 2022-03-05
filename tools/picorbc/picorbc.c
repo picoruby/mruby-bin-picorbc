@@ -12,46 +12,6 @@
 #include <picorbc.h>
 #include <common.h>
 
-#define MRB_DUMP_OK                     0
-#define MRB_DUMP_GENERAL_FAILURE      (-1)
-#define MRB_DUMP_WRITE_FAULT          (-2)
-#define MRB_DUMP_READ_FAULT           (-3)
-#define MRB_DUMP_INVALID_FILE_HEADER  (-4)
-#define MRB_DUMP_INVALID_IREP         (-5)
-#define MRB_DUMP_INVALID_ARGUMENT     (-6)
-int
-mrb_dump_irep_cstruct(uint8_t flags, FILE *fp, const char *initname)
-//mrb_dump_irep_cstruct(mrb_state *mrb, const mrb_irep *irep, uint8_t flags, FILE *fp, const char *initname)
-{
-  if (fp == NULL || initname == NULL || initname[0] == '\0') {
-    return MRB_DUMP_INVALID_ARGUMENT;
-  }
-  if (fprintf(fp, "#include <mruby.h>\n"
-                  "#include <mruby/proc.h>\n"
-                  "#include <mruby/presym.h>\n"
-                  "\n") < 0) {
-    return MRB_DUMP_WRITE_FAULT;
-  }
-  fputs("#define mrb_BRACED(...) {__VA_ARGS__}\n", fp);
-  fputs("#define mrb_DEFINE_SYMS_VAR(name, len, syms, qualifier) \\\n", fp);
-  fputs("  static qualifier mrb_sym name[len] = mrb_BRACED syms\n", fp);
-  fputs("\n", fp);
-//  mrb_value init_syms_code = mrb_str_new_capa(mrb, 0);
-//  int max = 1;
-//  int n = dump_irep_struct(mrb, irep, flags, fp, initname, 0, init_syms_code, &max);
-//  if (n != MRB_DUMP_OK) return n;
-  fprintf(fp, "#ifdef __cplusplus\nextern const struct RProc %s[];\n#endif\n", initname);
-  fprintf(fp, "const struct RProc %s[] = {{\n", initname);
-  fprintf(fp, "NULL,NULL,MRB_TT_PROC,7,0,{&%s_irep_0},NULL,{NULL},\n}};\n", initname);
-  fputs("static void\n", fp);
-  fprintf(fp, "%s_init_syms(mrb_state *mrb)\n", initname);
-  fputs("{\n", fp);
-//  fputs(RSTRING_PTR(init_syms_code), fp);
-  fputs("}\n", fp);
-  return MRB_DUMP_OK;
-}
-
-
 int loglevel;
 
 static bool verbose = false;
@@ -137,34 +97,35 @@ int output(Scope *scope, char *in, char *out, char *b_symbol)
         memcpy(&out[strlen(in)], ".c\0", 3);
     }
   }
-  if( (fp = fopen( out, "wb" ) ) == NULL ) {
+  if (strcmp("-", out) == 0) {
+    fp = stdout;
+  } else if ( (fp = fopen( out, "wb" ) ) == NULL ) {
     FATALP("picorbc: cannot write a file. (%s)", out);
     return 1;
-  } else {
-    if (b_symbol[0] == '\0') {
-      fwrite(scope->vm_code, scope->vm_code_size, 1, fp);
-    } else {
-      int i;
-      for (i=0; i < 5; i++) {
-        fwrite(C_FORMAT_LINES[i], strlen(C_FORMAT_LINES[i]), 1, fp);
-        if (i == 2) {
-          fwrite(b_symbol, strlen(b_symbol), 1, fp);
-          fwrite("[];", 3, 1, fp);
-        }
-        if (i < 4) fwrite("\n", 1, 1, fp);
-      }
-      fwrite(b_symbol, strlen(b_symbol), 1, fp);
-      fwrite("[] = {", 6, 1, fp);
-      char buf[6];
-      for (i = 0; i < scope->vm_code_size; i++) {
-        if (i % 16 == 0) fwrite("\n", 1, 1, fp);
-        snprintf(buf, 6, "0x%02x,", scope->vm_code[i]);
-        fwrite(buf, 5, 1, fp);
-      }
-      fwrite("\n};", 3, 1, fp);
-    }
-    fclose(fp);
   }
+  if (b_symbol[0] == '\0') {
+    fwrite(scope->vm_code, scope->vm_code_size, 1, fp);
+  } else {
+    int i;
+    for (i=0; i < 5; i++) {
+      fwrite(C_FORMAT_LINES[i], strlen(C_FORMAT_LINES[i]), 1, fp);
+      if (i == 2) {
+        fwrite(b_symbol, strlen(b_symbol), 1, fp);
+        fwrite("[];", 3, 1, fp);
+      }
+      if (i < 4) fwrite("\n", 1, 1, fp);
+    }
+    fwrite(b_symbol, strlen(b_symbol), 1, fp);
+    fwrite("[] = {", 6, 1, fp);
+    char buf[6];
+    for (i = 0; i < scope->vm_code_size; i++) {
+      if (i % 16 == 0) fwrite("\n", 1, 1, fp);
+      snprintf(buf, 6, "0x%02x,", scope->vm_code[i]);
+      fwrite(buf, 5, 1, fp);
+    }
+    fwrite("\n};", 3, 1, fp);
+  }
+  fclose(fp);
   return 0;
 }
 
