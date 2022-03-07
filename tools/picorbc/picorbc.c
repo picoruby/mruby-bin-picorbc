@@ -11,12 +11,20 @@
 
 #include <picorbc.h>
 #include <common.h>
+#include <dump.h>
 
 int loglevel;
 
-static bool verbose = false;
+struct picorbc_args {
+  const char *prog;
+  char *outfile;
+  char *initname;
+  char **argv;
+  int argc;
+  bool verbose;
+};
 
-int handle_opt(int argc, char * const *argv, char *out, char *b_symbol)
+int handle_opt(struct picorbc_args *args)
 {
   struct option longopts[] = {
     { "version",  no_argument,       NULL, 'v' },
@@ -32,7 +40,7 @@ int handle_opt(int argc, char * const *argv, char *out, char *b_symbol)
   int opt;
   int longindex;
   loglevel = LOGLEVEL_INFO;
-  while ((opt = getopt_long(argc, argv, "vVlERS:B:o:", longopts, &longindex)) != -1) {
+  while ((opt = getopt_long(args->argc, args->argv, "vVlERS:B:o:", longopts, &longindex)) != -1) {
     switch (opt) {
       case 'v':
         fprintf(stdout, "PicoRuby compiler %s", PICORBC_VERSION);
@@ -42,7 +50,7 @@ int handle_opt(int argc, char * const *argv, char *out, char *b_symbol)
         fprintf(stdout, "\n");
         return -1;
       case 'V': /* verbose */
-        verbose = true;
+        args->verbose = true;
         break;
       case 'l':
         if ( !strcmp(optarg, "debug") ) { loglevel = LOGLEVEL_DEBUG; } else
@@ -51,81 +59,46 @@ int handle_opt(int argc, char * const *argv, char *out, char *b_symbol)
         if ( !strcmp(optarg, "error") ) { loglevel = LOGLEVEL_ERROR; } else
         if ( !strcmp(optarg, "fatal") ) { loglevel = LOGLEVEL_FATAL; } else
         {
-          fprintf(stderr, "Invalid loglevel option: %s\n", optarg);
+          ERRORP("picorbc: invalid loglevel option `%s`", optarg);
           return 1;
         }
         break;
       case 'B':
-        strsafecpy(b_symbol, optarg, 254);
+        strsafecpy(args->initname, optarg, 254);
         break;
       case 'o':
-        strsafecpy(out, optarg, 254);
+        strsafecpy(args->outfile, optarg, 254);
         break;
       case 'E':
       case 'R':
       case 'S':
         break;
       default:
-        fprintf(stderr, "error! \'%c\' \'%c\'\n", opt, optopt);
+        ERRORP("error! \'%c\' \'%c\'", opt, optopt);
         return 1;
     }
   }
-  return 0;
-}
-
-const char C_FORMAT_LINES[5][22] = {
-  "#include <stdint.h>",
-  "#ifdef __cplusplus",
-  "extern const uint8_t ",
-  "#endif",
-  "const uint8_t ",
-};
-
-int output(Scope *scope, char *in, char *out, char *b_symbol)
-{
-  FILE *fp;
-  if (out[0] == '\0') {
-    if (strcmp(&in[strlen(in) - 3], ".rb") == 0) {
-      memcpy(out, in, strlen(in));
-      (b_symbol[0] == '\0') ?
-        memcpy(&out[strlen(in) - 3], ".mrb\0", 5) :
-        memcpy(&out[strlen(in) - 3], ".c\0", 3);
-    } else {
-      memcpy(out, in, strlen(in));
-      (b_symbol[0] == '\0') ?
-        memcpy(&out[strlen(in)], ".mrb\0", 5) :
-        memcpy(&out[strlen(in)], ".c\0", 3);
-    }
-  }
-  if (strcmp("-", out) == 0) {
-    fp = stdout;
-  } else if ( (fp = fopen( out, "wb" ) ) == NULL ) {
-    FATALP("picorbc: cannot write a file. (%s)", out);
+  args->prog = args->argv[optind];
+  if (!args->prog) {
+    ERRORP("picorbc: no program file given");
     return 1;
   }
-  if (b_symbol[0] == '\0') {
-    fwrite(scope->vm_code, scope->vm_code_size, 1, fp);
-  } else {
-    int i;
-    for (i=0; i < 5; i++) {
-      fwrite(C_FORMAT_LINES[i], strlen(C_FORMAT_LINES[i]), 1, fp);
-      if (i == 2) {
-        fwrite(b_symbol, strlen(b_symbol), 1, fp);
-        fwrite("[];", 3, 1, fp);
-      }
-      if (i < 4) fwrite("\n", 1, 1, fp);
-    }
-    fwrite(b_symbol, strlen(b_symbol), 1, fp);
-    fwrite("[] = {", 6, 1, fp);
-    char buf[6];
-    for (i = 0; i < scope->vm_code_size; i++) {
-      if (i % 16 == 0) fwrite("\n", 1, 1, fp);
-      snprintf(buf, 6, "0x%02x,", scope->vm_code[i]);
-      fwrite(buf, 5, 1, fp);
-    }
-    fwrite("\n};", 3, 1, fp);
+  if (args->argv[optind + 1] && args->outfile[0] == '\0') {
+    ERRORP("picorbc: output file should be specified to compile multiple files");
+    return 1;
   }
-  fclose(fp);
+  if (args->outfile[0] != '\0') return 0;
+  if (strcmp(&args->prog[strlen(args->prog) - 3], ".rb") == 0) {
+    memcpy(args->outfile, args->prog, strlen(args->prog));
+    (args->initname[0] == '\0') ?
+      memcpy(&args->outfile[strlen(args->prog) - 3], ".mrb\0", 5) :
+      memcpy(&args->outfile[strlen(args->prog) - 3], ".c\0", 3);
+  } else {
+    memcpy(args->outfile, args->prog, strlen(args->prog));
+    (args->initname[0] == '\0') ?
+      memcpy(&args->outfile[strlen(args->prog)], ".mrb\0", 5) :
+      memcpy(&args->outfile[strlen(args->prog)], ".c\0", 3);
+  }
   return 0;
 }
 
@@ -133,63 +106,67 @@ int output(Scope *scope, char *in, char *out, char *b_symbol)
 
 int main(int argc, char * const *argv)
 {
-  char out[255];
-  out[0] = '\0';
-  char b_symbol[255];
-  b_symbol[0] = '\0';
-  int ret = handle_opt(argc, argv, out, b_symbol);
+  struct picorbc_args args = {0};
+  args.argv = (char **)argv;
+  args.argc = argc;
+  char outfile[255];
+  char initname[255] = {0};
+  args.outfile = outfile;
+  args.initname = initname;
+  int ret = handle_opt(&args);
   if (ret != 0) return ret;
 
-  if ( !argv[optind] ) {
-    ERRORP("picorbc: no program file given");
-    return 1;
-  }
-
-  char *in;
+  char *in = NULL;
+  FILE *concatfile = NULL;
   { /* Concatenate files or single file */
-    FILE *infp, *outfp;
-    int i;
+    FILE *infp;
     char buf[BUFSIZE];
     int readsize;
     if (!argv[optind + 1]) { /* sigle input file */
       in = argv[optind];
     } else {                 /* multiple input files */
-      in = tmpnam(NULL);
-      if (!in) {
-        FATALP("Could't get tempfile name");
-        return -1;
-      }
-      outfp = fopen(in, "wb");
-      if (!outfp) {
+      concatfile = tmpfile();
+      if (!concatfile) {
         FATALP("Could't open tempfile");
         return -1;
       }
-      i = optind;
+      int i = optind;
       while (argv[i]) {
         infp = fopen(argv[i], "rb");
         if (!infp) {
           FATALP("Could't open file: %s", argv[i]);
           return -1;
         }
-        while ((readsize = fread(buf, 1, BUFSIZE, infp)) != 0)fwrite(buf, 1, readsize, outfp);
+        while ((readsize = fread(buf, 1, BUFSIZE, infp)) != 0)
+          fwrite(buf, 1, readsize, concatfile);
         fclose(infp);
         i++;
       }
-      fclose(outfp);
+      if (fseek(concatfile, 0L, SEEK_SET) != 0) {
+        FATALP("Could't rewind file");
+        return -1;
+      }
     }
   }
 
-  StreamInterface *si = StreamInterface_new(in, STREAM_TYPE_FILE);
+  StreamInterface *si = StreamInterface_new(concatfile, in, STREAM_TYPE_FILE);
   if (si == NULL) return 1;
   ParserState *p = Compiler_parseInitState(si->node_box_size);
-  p->verbose = verbose;
+  p->verbose = args.verbose;
   if (Compiler_compile(p, si)) {
-    ret = output(p->scope, in, out, b_symbol);
+    FILE *fp;
+    if (strcmp("-", args.outfile) == 0) {
+      fp = stdout;
+    } else if ( (fp = fopen(args.outfile, "wb") ) == NULL ) {
+      FATALP("picorbc: cannot write a file. (%s)", args.outfile);
+      return 1;
+    }
+    ret = Dump_mrbDump(fp, p->scope, args.initname);
+    fclose(fp);
   } else {
     ret = 1;
   }
   StreamInterface_free(si);
   Compiler_parserStateFree(p);
-  if (ret != 0) return ret;
   return ret;
 }
