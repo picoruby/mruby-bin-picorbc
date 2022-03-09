@@ -22,6 +22,8 @@ struct picorbc_args {
   char **argv;
   int argc;
   bool verbose;
+  bool dump_struct;
+  uint8_t flags;
 };
 
 int handle_opt(struct picorbc_args *args)
@@ -32,15 +34,13 @@ int handle_opt(struct picorbc_args *args)
     { "loglevel", required_argument, NULL, 'l' },
     { "",         required_argument, NULL, 'B' },
     { "",         required_argument, NULL, 'o' },
-    { "",         no_argument,       NULL, 'E' },
-    { "remove-lv",no_argument,       NULL, 'R' },
     { "",         no_argument,       NULL, 'S' },
     { 0,          0,                 0,     0  }
   };
   int opt;
   int longindex;
   loglevel = LOGLEVEL_INFO;
-  while ((opt = getopt_long(args->argc, args->argv, "vVlERS:B:o:", longopts, &longindex)) != -1) {
+  while ((opt = getopt_long(args->argc, args->argv, "vVlSB:o:", longopts, &longindex)) != -1) {
     switch (opt) {
       case 'v':
         fprintf(stdout, "PicoRuby compiler %s", PICORBC_VERSION);
@@ -69,9 +69,8 @@ int handle_opt(struct picorbc_args *args)
       case 'o':
         strsafecpy(args->outfile, optarg, 254);
         break;
-      case 'E':
-      case 'R':
       case 'S':
+        args->dump_struct = true;
         break;
       default:
         ERRORP("error! \'%c\' \'%c\'", opt, optopt);
@@ -161,7 +160,11 @@ int main(int argc, char * const *argv)
       FATALP("picorbc: cannot write a file. (%s)", args.outfile);
       return 1;
     }
-    ret = Dump_mrbDump(fp, p->scope, args.initname);
+    if (args.dump_struct && args.initname[0] != '\0') {
+      ret = Dump_cstructDump(fp, p->scope, args.flags, args.initname);
+    } else {
+      ret = Dump_mrbDump(fp, p->scope, args.initname);
+    }
     fclose(fp);
   } else {
     ret = 1;
