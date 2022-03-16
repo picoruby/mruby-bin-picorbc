@@ -12,6 +12,7 @@
 #include <picorbc.h>
 #include <common.h>
 #include <dump.h>
+#include <context.h>
 
 int loglevel;
 
@@ -152,7 +153,8 @@ int main(int argc, char * const *argv)
   if (si == NULL) return 1;
   ParserState *p = Compiler_parseInitState(si->node_box_size);
   p->verbose = args.verbose;
-  if (Compiler_compile(p, si)) {
+  picorbc_context *c = picorbc_context_new();
+  if (Compiler_compile(p, si, c)) { /* TODO picorbc_context */
     FILE *fp;
     if (strcmp("-", args.outfile) == 0) {
       fp = stdout;

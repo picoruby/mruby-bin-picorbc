@@ -9,7 +9,7 @@ MRuby::Gem::Specification.new 'mruby-bin-picorbc' do |spec|
     objfile(f.pathmap("#{spec.build_dir}/tools/picorbc/%n"))
   end
 
-  pico_compiler_srcs = %w(common compiler dump generator mrbgem my_regex
+  pico_compiler_srcs = %w(common compiler context dump generator mrbgem my_regex
                           node regex scope stream token tokenizer)
   pico_compiler_objs = pico_compiler_srcs.map do |name|
     objfile("#{build.gems['mruby-pico-compiler'].build_dir}/src/#{name}")
