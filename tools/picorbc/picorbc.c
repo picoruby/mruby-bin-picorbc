@@ -171,6 +171,7 @@ int main(int argc, char * const *argv)
   } else {
     ret = 1;
   }
+  fclose(concatfile);
   StreamInterface_free(si);
   Compiler_parserStateFree(p);
   return ret;
