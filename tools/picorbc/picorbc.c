@@ -116,14 +116,17 @@ int main(int argc, char * const *argv)
   int ret = handle_opt(&args);
   if (ret != 0) return ret;
 
-  char *in = NULL;
   FILE *concatfile = NULL;
   { /* Concatenate files or single file */
     FILE *infp;
     char buf[BUFSIZE];
     int readsize;
     if (!argv[optind + 1]) { /* sigle input file */
-      in = argv[optind];
+      concatfile = fopen(argv[optind], "rb");
+      if (!concatfile) {
+        FATALP("Could't open file");
+        return -1;
+      }
     } else {                 /* multiple input files */
       concatfile = tmpfile();
       if (!concatfile) {
@@ -149,7 +152,7 @@ int main(int argc, char * const *argv)
     }
   }
 
-  StreamInterface *si = StreamInterface_new(concatfile, in, STREAM_TYPE_FILE);
+  StreamInterface *si = StreamInterface_new(concatfile, NULL, STREAM_TYPE_FILE);
   if (si == NULL) return 1;
   ParserState *p = Compiler_parseInitState(si->node_box_size);
   p->verbose = args.verbose;
