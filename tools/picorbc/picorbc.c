@@ -109,7 +109,7 @@ int main(int argc, char * const *argv)
   struct picorbc_args args = {0};
   args.argv = (char **)argv;
   args.argc = argc;
-  char outfile[255];
+  char outfile[255] = {0};
   char initname[255] = {0};
   args.outfile = outfile;
   args.initname = initname;
