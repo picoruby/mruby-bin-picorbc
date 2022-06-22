@@ -174,6 +174,7 @@ int main(int argc, char * const *argv)
   } else {
     ret = 1;
   }
+  picorbc_context_free(c);
   fclose(concatfile);
   StreamInterface_free(si);
   Compiler_parserStateFree(p);
