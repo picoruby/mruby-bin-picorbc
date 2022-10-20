@@ -5,9 +5,8 @@ MRuby::Gem::Specification.new 'mruby-bin-picorbc' do |spec|
   spec.add_dependency 'mruby-pico-compiler', github: 'hasumikin/mruby-pico-compiler'
 
   exec = exefile("#{build.build_dir}/bin/picorbc")
-  picorbc_objs = Dir.glob("#{spec.dir}/tools/picorbc/*.c").map do |f|
-    objfile(f.pathmap("#{spec.build_dir}/tools/picorbc/%n"))
-  end
+
+  picorbc_obj = objfile("#{dir}/tools/picorbc/picorbc.c".pathmap("#{build_dir}/tools/picorbc/%n"))
 
   pico_compiler_srcs = %w(common compiler context dump generator mrbgem my_regex
                           node regex scope stream token tokenizer)
@@ -15,7 +14,9 @@ MRuby::Gem::Specification.new 'mruby-bin-picorbc' do |spec|
     objfile("#{build.gems['mruby-pico-compiler'].build_dir}/src/#{name}")
   end
 
-  file exec => picorbc_objs + pico_compiler_objs do |t|
+  ptr_size = "#{build.gems['mruby-pico-compiler'].clone.dir}/include/ptr_size.h"
+
+  file exec => [ptr_size, picorbc_obj] + pico_compiler_objs do |t|
     build.linker.run t.name, t.prerequisites
   end
 
