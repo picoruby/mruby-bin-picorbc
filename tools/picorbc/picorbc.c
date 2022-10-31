@@ -154,9 +154,9 @@ int main(int argc, char * const *argv)
 
   StreamInterface *si = StreamInterface_new(concatfile, NULL, STREAM_TYPE_FILE);
   if (si == NULL) return 1;
-  ParserState *p = Compiler_parseInitState(si->node_box_size);
+  ParserState *p = Compiler_parseInitState(0, si->node_box_size);
   p->verbose = args.verbose;
-  picorbc_context *c = picorbc_context_new();
+  picorbc_context *c = picorbc_context_new(0);
   if (Compiler_compile(p, si, c)) { /* TODO picorbc_context */
     FILE *fp;
     if (strcmp("-", args.outfile) == 0) {
