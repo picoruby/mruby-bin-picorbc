@@ -18,8 +18,10 @@ MRuby::Gem::Specification.new 'mruby-bin-picorbc' do |spec|
 
   parse_h = "#{build.gems['mruby-pico-compiler'].clone.dir}/include/parse.h"
 
+  pico_compiler_objs << picorbc_obj
+
   file exec => [ptr_size, parse_h, picorbc_obj] + pico_compiler_objs do |t|
-    build.linker.run t.name, t.prerequisites
+    build.linker.run t.name, pico_compiler_objs
   end
 
   build.bins << 'picorbc'
